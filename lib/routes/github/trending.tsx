@@ -3,6 +3,7 @@ import { raw } from 'hono/html';
 import { renderToString } from 'hono/jsx/dom/server';
 
 import { config } from '@/config';
+import { getTokenRequirements } from '@/config/token-registry';
 import ConfigNotFoundError from '@/errors/types/config-not-found';
 import type { Route } from '@/types';
 import { ViewType } from '@/types';
@@ -66,7 +67,7 @@ export const route: Route = {
 
 async function handler(ctx) {
     if (!config.github || !config.github.access_token) {
-        throw new ConfigNotFoundError('GitHub trending RSS is disabled due to the lack of <a href="https://docs.rsshub.app/deploy/config#route-specific-configurations">relevant config</a>');
+        throw new ConfigNotFoundError('GitHub trending RSS requires a GitHub access token.', getTokenRequirements('github'));
     }
     const since = ctx.req.param('since');
     const language = ctx.req.param('language') === 'any' ? '' : ctx.req.param('language');

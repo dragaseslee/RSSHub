@@ -4,6 +4,7 @@ import { Cookie, CookieJar } from 'tough-cookie';
 import undici, { Client, ProxyAgent } from 'undici';
 
 import { config } from '@/config';
+import { getTokenRequirements } from '@/config/token-registry';
 import ConfigNotFoundError from '@/errors/types/config-not-found';
 import cache from '@/utils/cache';
 import logger from '@/utils/logger';
@@ -85,7 +86,7 @@ export const twitterGot = async (
     const auth = await getAuth(30);
 
     if (!auth && !options?.allowNoAuth) {
-        throw new ConfigNotFoundError('No valid Twitter token found');
+        throw new ConfigNotFoundError('No valid Twitter token found.', getTokenRequirements('twitter'));
     }
 
     const requestUrl = `${url}?${queryString.stringify(params)}`;

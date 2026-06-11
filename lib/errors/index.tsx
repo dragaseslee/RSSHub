@@ -9,6 +9,7 @@ import logger from '@/utils/logger';
 import { requestMetric } from '@/utils/otel';
 import Error from '@/views/error';
 
+import type ConfigNotFoundErrorType from './types/config-not-found';
 import NotFoundError from './types/not-found';
 
 export const errorHandler: ErrorHandler = (error, ctx) => {
@@ -68,6 +69,9 @@ export const errorHandler: ErrorHandler = (error, ctx) => {
             ctx.status(404);
             errorMessage += 'The route does not exist or has been deleted.';
             break;
+        case 'ConfigNotFoundError':
+            ctx.status(503);
+            break;
         default:
             ctx.status(503);
             break;
@@ -76,6 +80,19 @@ export const errorHandler: ErrorHandler = (error, ctx) => {
 
     logger.error(`Error in ${requestPath}: ${message}`);
     requestMetric.error({ path: matchedRoute, method: ctx.req.method, status: ctx.res.status });
+
+    if (error.constructor.name === 'ConfigNotFoundError') {
+        const configError = error as ConfigNotFoundErrorType;
+        const tokenRequirements = configError.tokenRequirements || [];
+        return ctx.json({
+            error: {
+                code: 'MISSING_CONFIG',
+                message: error.message ?? 'Missing required configuration',
+                tokenRequirements,
+                hint: tokenRequirements.length > 0 ? 'Pass tokens via HTTP headers (e.g., X-RSSHub-{Service}-{Key}) or configure environment variables on the server.' : undefined,
+            },
+        });
+    }
 
     return config.isPackage || ctx.req.query('format') === 'json'
         ? ctx.json({
