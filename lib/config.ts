@@ -1,6 +1,32 @@
 import 'dotenv/config';
 
+import { AsyncLocalStorage } from 'node:async_hooks';
+
 import { ofetch } from 'ofetch';
+
+// AsyncLocalStorage for per-request token overrides
+// Key: config path like "github.access_token", Value: override value
+export type TokenOverrideMap = Record<string, string>;
+export const tokenOverrideStorage = new AsyncLocalStorage<TokenOverrideMap>();
+
+// Get a fingerprint of current request's token overrides for cache isolation
+export function getTokenFingerprint(): string {
+    const overrides = tokenOverrideStorage.getStore();
+    if (!overrides || Object.keys(overrides).length === 0) {
+        return '';
+    }
+    // Simple hash of all override values for cache key differentiation
+    const sorted = Object.entries(overrides)
+        .toSorted(([a], [b]) => a.localeCompare(b))
+        .map(([k, v]) => `${k}=${v}`)
+        .join('&');
+    let hash = 0;
+    for (let i = 0; i < sorted.length; i++) {
+        const char = sorted.codePointAt(i);
+        hash = Math.trunc((hash << 5) - hash + char);
+    }
+    return hash.toString(36);
+}
 
 type ConfigEnvKeys =
     // App config
@@ -1241,8 +1267,33 @@ calculateValue();
     }
 })();
 
+// Deep proxy that checks AsyncLocalStorage for per-request token overrides
+function createConfigProxy(target: Record<string, any>, prefix: string = ''): Config {
+    return new Proxy(target, {
+        get(obj, prop: string) {
+            const fullPath = prefix ? `${prefix}.${prop}` : prop;
+            const overrides = tokenOverrideStorage.getStore();
+            const override = overrides?.[fullPath];
+
+            if (override !== undefined) {
+                return override;
+            }
+
+            const original = obj[prop];
+            if (original !== null && typeof original === 'object' && !Array.isArray(original)) {
+                // Check if there are any overrides for this subtree
+                const hasSubOverrides = overrides && Object.keys(overrides).some((k) => k.startsWith(fullPath + '.'));
+                if (hasSubOverrides) {
+                    return createConfigProxy(original, fullPath);
+                }
+            }
+            return original;
+        },
+    }) as unknown as Config;
+}
+
 // @ts-expect-error value is set
-export const config: Config = value;
+export const config: Config = createConfigProxy(value);
 
 export const setConfig = (env: ConfigEnv) => {
     envs = Object.assign(process.env, env);

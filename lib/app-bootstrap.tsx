@@ -15,6 +15,7 @@ import mLogger from '@/middleware/logger';
 import parameter from '@/middleware/parameter';
 import sentry from '@/middleware/sentry';
 import template from '@/middleware/template';
+import tokenOverride from '@/middleware/token-override';
 import trace from '@/middleware/trace';
 import registry from '@/registry';
 import logger from '@/utils/logger';
@@ -44,6 +45,7 @@ app.use(template);
 app.use(header);
 app.use(antiHotlink);
 app.use(parameter);
+app.use(tokenOverride);
 app.use(cache);
 
 app.route('/', registry);
