@@ -81,7 +81,7 @@ export const errorHandler: ErrorHandler = (error, ctx) => {
     logger.error(`Error in ${requestPath}: ${message}`);
     requestMetric.error({ path: matchedRoute, method: ctx.req.method, status: ctx.res.status });
 
-    if (error.constructor.name === 'ConfigNotFoundError') {
+    if ('tokenRequirements' in error) {
         const configError = error as ConfigNotFoundErrorType;
         const tokenRequirements = configError.tokenRequirements || [];
         return ctx.json({
